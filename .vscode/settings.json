@@ -1,3 +1,4 @@
 {
-  "cSpell.words": ["buildlog", "LTWH", "RGBO", "rxdart", "subosito", "Symbolication", "webp"]
+  "cSpell.words": ["buildlog", "LTWH", "RGBO", "rxdart", "subosito", "Symbolication", "webp"],
+  "cmake.ignoreCMakeListsMissing": true
 }

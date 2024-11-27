@@ -1,0 +1,215 @@
+name: Build App
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: snap_fit
+
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build-windows:
+    # runs-on: windows-latest
+    runs-on: windows-2019
+    # runs-on: [self-hosted, X64, Windows]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: "stable"
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Build Installer
+        run: makensis build-nsis.nsi
+
+      # - name: Move Windows Build Files
+      #   run: mkdir windows-build && move build\windows\x64\runner\Release\* windows-build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: build/windows/x64/runner/Release
+
+  build-macos:
+    # runs-on: macos-latest
+    # runs-on: self-hosted
+    runs-on: macos-13
+
+    env:
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_DEVELOPMENT_ID: ${{ secrets.APPLE_DEVELOPMENT_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.SIGNING_CERTIFICATE }}
+      APPLE_CERTIFICATE_PWD: ${{ secrets.CERT_PASSWORD }}
+
+      MACOS_APP_RELEASE_PATH: build/macos/Build/Products/Release
+      # MACOS_APP_RELEASE_PATH: build/macos/Build/Products/Debug
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: "stable"
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Enable Macos
+        run: flutter config --enable-macos-desktop
+
+      # - name: Enable Custom Devices
+      #   run: flutter config --enable-custom-devices
+
+      - name: Build macOS
+        # run: flutter build macos --debug
+        run: flutter build macos --release
+
+      # - name: Sign and notarize app
+      #   run: |
+      #     #1 Декодування і збереження сертифікату
+      #     echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+
+      #     #2
+      #     security create-keychain -p "$APPLE_APP_PASSWORD" build.keychain
+
+      #     #3
+      #     security default-keychain -s build.keychain
+
+      #     #4
+      #     security unlock-keychain -p "$APPLE_APP_PASSWORD" build.keychain
+
+      #     #5
+      #     security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PWD" -T /usr/bin/codesign
+
+      #     #6
+      #     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$APPLE_APP_PASSWORD" build.keychain
+
+      #     #7
+      #     security find-identity
+
+      #     #8
+      #     /usr/bin/codesign --force --deep -s "$APPLE_DEVELOPMENT_ID" $MACOS_APP_RELEASE_PATH/$APP_NAME.app
+
+      - name: Create a dmg
+        run: |
+          brew install create-dmg
+
+          cd "$MACOS_APP_RELEASE_PATH"
+
+          create-dmg \
+            --volname "$APP_NAME" \
+            --window-pos 200 120 \
+            --window-size 800 529 \
+            --icon-size 130 \
+            --text-size 14 \
+            --icon "$APP_NAME.app" 260 250 \
+            --hide-extension "$APP_NAME.app" \
+            --app-drop-link 540 250 \
+            --hdiutil-quiet \
+            "$APP_NAME.dmg" \
+            "$APP_NAME.app"
+
+      # - name: Move MacOs Build Files
+      #   run: mkdir -p macos-build && mv ${{env.MACOS_APP_RELEASE_PATH}}/* macos-build
+
+      - name: Upload MacOs Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: ${{env.MACOS_APP_RELEASE_PATH}}
+
+  release:
+    needs:
+      - build-windows
+      - build-macos
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Version Number
+        run: |
+          git fetch
+
+          VERSION_WITHOUT_SUFFIX="$(grep 'version:' pubspec.yaml | awk '{ print $2 }' | cut -d'+' -f 1)"
+
+          function parse_git_hash() {
+            git rev-list --count origin/main
+          }
+
+          MAIN_COUNT=$(parse_git_hash)
+
+          echo "APP_VERSION=$VERSION_WITHOUT_SUFFIX+$MAIN_COUNT" >> $GITHUB_ENV
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{env.APP_VERSION}}
+          release_name: "Release ${{env.APP_VERSION}}"
+          body: |
+            Combined release for macOS and Windows
+          draft: false
+          prerelease: false
+
+      - name: Download Windows Build
+        uses: actions/download-artifact@v4
+
+      - name: Archive MacOs Build
+        run: zip -r macos-build.zip macos-build
+
+      - name: Upload MacOS app Build to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: macos-build.zip
+          asset_name: macos-build.zip
+          asset_content_type: application/octet-stream
+
+      - name: Upload MacOS dmg Build to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: macos-build/${{env.APP_NAME}}.dmg
+          asset_name: "${{env.APP_NAME}}.dmg"
+          asset_content_type: application/octet-stream
+
+      - name: Archive Windows Build
+        run: zip -r windows-build.zip windows-build
+
+      - name: Upload Windows Build to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: windows-build.zip
+          asset_name: ${{env.APP_NAME}}.exe.zip
+          asset_content_type: application/octet-stream
