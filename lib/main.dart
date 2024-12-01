@@ -55,6 +55,7 @@ class MyApp extends StatelessWidget {
                   child: DragView(
                     child: Stack(
                       children: [
+                        _CloseSnapFitBtn(),
                         const SizedBox.expand(
                           child: SnapView(),
                         ),
@@ -82,6 +83,23 @@ class MyApp extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _CloseSnapFitBtn extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    bool isEmptySnap = context.select<SnapBloc, bool>((snap) => snap.state.originalSnap == null);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: isEmptySnap
+          ? null
+          : FloatingActionButton(
+              child: const Icon(Icons.close, size: 30),
+              onPressed: () => context.read<SnapBloc>().add(CloseSnapEvent()),
+            ),
     );
   }
 }
@@ -153,7 +171,7 @@ class _FooterRightBox extends StatelessWidget {
     if (snapBloc.state.originalSnap == null || snapBloc.state.processedSnap == null) {
       return Container();
     } else {
-      final originalSize = ((snapBloc.state.originalSnap?.statSync().size ?? 0) / 1000).round();
+      final originalSize = ((snapBloc.state.originalSnap?.size ?? 0) / 1000).round();
       final processedSize = ((snapBloc.state.processedSnap?.statSync().size ?? 0) / 1000).round();
 
       int average;

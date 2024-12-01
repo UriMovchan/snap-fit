@@ -31,7 +31,7 @@ class DragView extends StatelessWidget {
             if (details.files.isNotEmpty) {
               final file = details.files.first;
 
-              final allowedMimeTypes = ['image/png', 'image/jpeg', 'image/webp'];
+              final allowedMimeTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/avif'];
               final mimeType = lookupMimeType(file.path);
 
               if (mimeType != null && allowedMimeTypes.contains(mimeType)) {

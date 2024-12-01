@@ -48,8 +48,8 @@ class SnapView extends StatelessWidget {
                                 child: SizedBox(
                                   width: state.width,
                                   height: state.height,
-                                  child: Image.file(
-                                    state.originalSnap!,
+                                  child: RawImage(
+                                    image: state.originalSnap!.uiImage,
                                     alignment: Alignment.centerLeft,
                                     fit: BoxFit.cover,
                                     width: state.width,

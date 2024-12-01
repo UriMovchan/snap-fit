@@ -48,18 +48,24 @@ class SnapBloc extends Bloc<SnapEvent, SnapState> {
       }
     });
 
-    on<SnapDropEvent>((SnapDropEvent event, Emitter<SnapState> emit) {
-      Snap snap = Snap(file: event.image);
+    on<CloseSnapEvent>((CloseSnapEvent event, Emitter<SnapState> emit) async {
+      emit(state.copyWith(originalSnapNull: true, processedSnapNull: true, error: null));
+    });
+
+    on<SnapDropEvent>((SnapDropEvent event, Emitter<SnapState> emit) async {
+      Snap snap = await Snap.decode(event.image);
 
       emit(state.copyWith(
-          loading: true, originalSnap: event.image, processedSnap: null, width: snap.width, height: snap.height));
+          loading: true, originalSnap: snap, processedSnapNull: true, width: snap.width, height: snap.height));
 
       add(ProcessSnapEvent());
     });
 
     on<SaveSnapEvent>((SaveSnapEvent event, Emitter<SnapState> emit) async {
-      final String? pickerPath =
-          await FilePicker.platform.saveFile(type: FileType.image, fileName: path.basename(state.originalSnap!.path));
+      final fileName =
+          '${path.basenameWithoutExtension(state.originalSnap!.file.path)}${path.extension(state.processedSnap!.path)}';
+
+      final String? pickerPath = await FilePicker.platform.saveFile(type: FileType.image, fileName: fileName);
 
       if (pickerPath != null) {
         File(pickerPath).writeAsBytesSync(File(state.processedSnap!.path).readAsBytesSync());
@@ -67,28 +73,28 @@ class SnapBloc extends Bloc<SnapEvent, SnapState> {
     });
 
     on<SnapErrorEvent>((SnapErrorEvent event, Emitter<SnapState> emit) {
-      emit(state.copyWith(originalSnap: null, processedSnap: null, error: event.error));
+      emit(state.copyWith(originalSnapNull: true, processedSnapNull: true, error: event.error));
     });
 
     on<ProcessSnapEvent>((ProcessSnapEvent event, Emitter<SnapState> emit) async {
       emit(state.copyWith(loading: true, processedSnap: state.processedSnap));
 
       try {
-        Snap snap = Snap(file: state.originalSnap!);
+        Snap snap = await Snap.decode(state.originalSnap!.file);
 
         FitState fit = fitBloc.state;
 
         if (fit.crop && fit.isValidCrop && fit.resize && fit.isValidResize) {
-          snap.cropResize(
+          await snap.cropResize(
             newWidth: fit.width.value!,
             newHeight: fit.height.value!,
             padding: fit.padding.value,
             tolerance: fit.tolerance.value,
           );
         } else if (fit.crop && fit.isValidCrop) {
-          snap.crop(tolerance: fit.tolerance.value);
+          await snap.crop(tolerance: fit.tolerance.value);
         } else if (fit.resize && fit.isValidResize) {
-          snap.resize(newWidth: fit.width.value!, newHeight: fit.height.value!, padding: fit.padding.value);
+          await snap.resize(newWidth: fit.width.value!, newHeight: fit.height.value!, padding: fit.padding.value);
         }
 
         final File processedFile = await snap.getProcessed(format: fit.format, quality: fit.quality);

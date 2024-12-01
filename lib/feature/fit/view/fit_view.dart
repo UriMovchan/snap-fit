@@ -1,18 +1,17 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:snap_fit/feature/fit/bloc/fit_bloc.dart';
 import 'package:snap_fit/feature/fit/model/fit_model.dart';
 import 'package:snap_fit/feature/snap/bloc/snap_bloc.dart';
+import 'package:snap_fit/feature/snap/model/snap_model.dart';
 
 class FitView extends StatelessWidget {
   const FitView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    File? originalSnap = context.select<SnapBloc, File?>((snapBloc) => snapBloc.state.originalSnap);
+    Snap? originalSnap = context.select<SnapBloc, Snap?>((snapBloc) => snapBloc.state.originalSnap);
 
     return originalSnap == null
         ? Container()

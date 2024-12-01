@@ -2,6 +2,8 @@ part of 'snap_bloc.dart';
 
 abstract class SnapEvent {}
 
+class CloseSnapEvent extends SnapEvent {}
+
 class SnapSetSeparatorPositionEvent extends SnapEvent {
   final double position;
 

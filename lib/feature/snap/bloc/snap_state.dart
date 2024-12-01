@@ -1,7 +1,7 @@
 part of 'snap_bloc.dart';
 
 final class SnapState {
-  final File? originalSnap;
+  final Snap? originalSnap;
   final File? processedSnap;
   final double width;
   final double height;
@@ -22,7 +22,7 @@ final class SnapState {
   });
 
   SnapState copyWith({
-    File? originalSnap,
+    Snap? originalSnap,
     File? processedSnap,
     double? width,
     double? height,
@@ -30,10 +30,12 @@ final class SnapState {
     double? snapScale,
     bool? loading,
     String? error,
+    bool originalSnapNull = false,
+    bool processedSnapNull = false,
   }) {
     return SnapState(
-      originalSnap: originalSnap ?? this.originalSnap,
-      processedSnap: processedSnap ?? this.processedSnap,
+      originalSnap: originalSnapNull ? null : originalSnap ?? this.originalSnap,
+      processedSnap: processedSnapNull ? null : processedSnap ?? this.processedSnap,
       width: width ?? this.width,
       height: height ?? this.height,
       separatorPosition: separatorPosition ?? this.separatorPosition,
